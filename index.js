@@ -1,11 +1,6 @@
 // Data modelling questions
 // System Design Questions
-const readline = require('readline');
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+const {exec} = require("node:child_process");
 
 let ticTacToe = [
   ['_', '_', '_'],
@@ -28,9 +23,19 @@ function countMovesPlayed() {
   movesPlayed++;
 }
 
+function resetTicTacToe() {
+  ticTacToe = [
+    ['_', '_', '_'],
+    ['_', '_', '_'],
+    ['_', '_', '_'],
+  ];
+}
+
 function gameDraw() {
   if (movesPlayed === 9) {
     return true;
+  } else {
+    return false;
   }
 }
 
@@ -142,23 +147,16 @@ function checkPlayerWon() {
   return false;
 }
 
-function validatePlayerMove(index1, index2, value) {
+function validatePlayerMove(playerValue) {
   if (ticTacToe[index1][index2] === '_') {
-    ticTacToe[index1][index2] = value;
+    ticTacToe[index1][index2] = playerValue;
+    return true;
   } else {
-    return 'not empty';
+    return false;
   }
 }
 
-function playGame(index1, index2) {
-  const validateMove = validatePlayerMove(index1, index2, currentPlayer);
-
-  if (validateMove) {
-    return validateMove;
-  }
-}
-
-function filterPlayerMove(number) {
+function changeIndexAccordingToNumber(number) {
   if (number === 1) {
     index1 = 0;
     index2 = 0;
@@ -205,7 +203,7 @@ function filterPlayerMove(number) {
   }
 }
 
-function displayTicTacToe(ticTacToe) {
+function displayTicTacToe() {
   console.log(
     `${ticTacToe[0].join('\t')}\n${ticTacToe[1].join(
       '\t'
@@ -222,63 +220,69 @@ function displayCurrentPlayer() {
   console.log(`current player is ${currentPlayer}`);
 }
 
-process.stdin.on('data', (data) => {
-  const parsedData = data.toString();
-  const isValidNum = !Number.isNaN(Number(parsedData));
+function playGame(num) {
+  changeIndexAccordingToNumber(num);
 
-  if (!isValidNum || Number(parsedData) > 9 || Number(parsedData) < 1) {
-    console.log('please type a number between 1 and 9');
+  const validateMove = validatePlayerMove(currentPlayer);
+
+  if (!validateMove) {
+    console.log(
+      `\n'${num}' is already filled. Please retry with a different value.`
+    );
+    displayCurrentPlayer();
+    displayTicTacToe(ticTacToe);
+    return;
+  } else {
+    console.clear();
+    console.log(`\n'Player - '${currentPlayer}' move is - '${num}'`);
+  }
+
+  countMovesPlayed();
+  const playerWon = checkPlayerWon();
+
+  if (playerWon) {
+    console.clear();
+    console.log(`Congrats ${currentPlayer}. You won the game!!!`);
+    resetTicTacToe();
+    currentPlayer = players.player1;
+    displayInitialGameRules();
+    displayTicTacToe(ticTacToe);
+    return;
+  }
+
+  const isGameDraw = gameDraw();
+
+  if (isGameDraw) {
+    console.clear();
+    console.log(`The game is draw.\nRestarting the Game...`);
+    resetTicTacToe();
+    currentPlayer = players.player1;
+    displayInitialGameRules();
+    displayTicTacToe(ticTacToe);
+    return;
+  }
+
+  changePlayer();
+  displayCurrentPlayer();
+
+  displayTicTacToe(ticTacToe);
+}
+
+process.stdin.on("data", (data) => {
+  const parsedData = data.toString();
+  const isValidNum = !Number.isNaN(Number(data.toString()));
+  const validNum = Number(data.toString());
+
+  if (!isValidNum || Number(validNum) > 9 || Number(validNum) < 1) {
+    console.clear();
+    console.log(
+      `Invalid Input - '${parsedData}' by player '${currentPlayer}'.\nPlease type a number between 1 and 9`
+    );
     displayCurrentPlayer();
     displayTicTacToe(ticTacToe);
   } else {
-    filterPlayerMove(Number(parsedData));
-    const playMoveError = playGame(index1, index2);
-
-    if (playMoveError) {
-      console.log(playMoveError);
-      displayCurrentPlayer();
-      displayTicTacToe(ticTacToe);
-
-      return;
-    }
-
-    countMovesPlayed();
-    const playerWon = checkPlayerWon();
-
-    if (playerWon) {
-      console.log(`Congrats ${currentPlayer}. You won the game!!!`);
-      ticTacToe = [
-        ['_', '_', '_'],
-        ['_', '_', '_'],
-        ['_', '_', '_'],
-      ];
-      currentPlayer = players.player1;
-      displayInitialGameRules();
-      displayTicTacToe(ticTacToe);
-      return;
-    }
-
-    const isGameDraw = gameDraw();
-
-    if (isGameDraw) {
-      console.log(`The game is draw.\nRestarting the Game...`);
-      ticTacToe = [
-        ['_', '_', '_'],
-        ['_', '_', '_'],
-        ['_', '_', '_'],
-      ];
-      currentPlayer = players.player1;
-      displayInitialGameRules();
-      displayTicTacToe(ticTacToe);
-      return;
-    }
-
-    changePlayer();
-    displayCurrentPlayer();
-
-    displayTicTacToe(ticTacToe);
+    playGame(validNum);
   }
 });
 
 displayInitialGameRules();
-

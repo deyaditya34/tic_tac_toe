@@ -1,5 +1,3 @@
-// Data modelling questions
-// System Design Questions
 const {exec} = require("node:child_process");
 
 let ticTacToe = [

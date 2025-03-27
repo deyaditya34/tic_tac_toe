@@ -1,5 +1,3 @@
-const {exec} = require("node:child_process");
-
 let ticTacToe = [
   ['_', '_', '_'],
   ['_', '_', '_'],
@@ -45,104 +43,39 @@ function changePlayer() {
   }
 }
 
-function checkPlayerWon() {
+function checkPlayerWon(row, column, player) {
   if (
-    ticTacToe[0][0] !== '_' &&
-    ticTacToe[0][1] !== '_' &&
-    ticTacToe[0][2] !== '_'
+    ticTacToe[row][0] === ticTacToe[row][1] &&
+    ticTacToe[row][1] === ticTacToe[row][2] &&
+    ticTacToe[row][0] === player
   ) {
-    if (
-      ticTacToe[0][0] === ticTacToe[0][1] &&
-      ticTacToe[0][1] === ticTacToe[0][2]
-    ) {
-      return true;
-    }
+    return true;
   }
+
   if (
-    ticTacToe[1][0] !== '_' &&
-    ticTacToe[1][1] !== '_' &&
-    ticTacToe[1][2] !== '_'
+    ticTacToe[0][column] === ticTacToe[1][column] &&
+    ticTacToe[1][column] === ticTacToe[2][column] &&
+    ticTacToe[0][column] === player
   ) {
-    if (
-      ticTacToe[1][0] === ticTacToe[1][1] &&
-      ticTacToe[1][1] === ticTacToe[1][2]
-    ) {
-      return true;
-    }
+    return true;
   }
+
   if (
-    ticTacToe[2][0] !== '_' &&
-    ticTacToe[2][1] !== '_' &&
-    ticTacToe[2][2] !== '_'
+    row === column &&
+    ticTacToe[0][0] === ticTacToe[1][1] &&
+    ticTacToe[2][2] === ticTacToe[0][0]
   ) {
-    if (
-      ticTacToe[2][0] === ticTacToe[2][1] &&
-      ticTacToe[2][1] === ticTacToe[2][2]
-    ) {
-      return true;
-    }
+    return true;
   }
+
   if (
-    ticTacToe[0][0] !== '_' &&
-    ticTacToe[1][0] !== '_' &&
-    ticTacToe[2][0] !== '_'
+    (row === column || Math.abs(row - column) === 2) &&
+    ticTacToe[2][0] === ticTacToe[1][1] &&
+    ticTacToe[1][1] === ticTacToe[0][2] &&
+    ticTacToe[1][1] === player
   ) {
-    if (
-      ticTacToe[0][0] === ticTacToe[1][0] &&
-      ticTacToe[1][0] === ticTacToe[2][0]
-    ) {
-      return true;
-    }
+    return true;
   }
-  if (
-    ticTacToe[0][1] !== '_' &&
-    ticTacToe[1][1] !== '_' &&
-    ticTacToe[2][1] !== '_'
-  ) {
-    if (
-      ticTacToe[0][1] === ticTacToe[1][1] &&
-      ticTacToe[1][1] === ticTacToe[2][1]
-    ) {
-      return true;
-    }
-  }
-  if (
-    ticTacToe[0][2] !== '_' &&
-    ticTacToe[1][2] !== '_' &&
-    ticTacToe[2][2] !== '_'
-  ) {
-    if (
-      ticTacToe[0][2] === ticTacToe[1][2] &&
-      ticTacToe[1][2] === ticTacToe[2][2]
-    ) {
-      return true;
-    }
-  }
-  if (
-    ticTacToe[0][0] !== '_' &&
-    ticTacToe[1][1] !== '_' &&
-    ticTacToe[2][2] !== '_'
-  ) {
-    if (
-      ticTacToe[0][0] === ticTacToe[1][1] &&
-      ticTacToe[1][1] === ticTacToe[2][2]
-    ) {
-      return true;
-    }
-  }
-  if (
-    ticTacToe[0][2] !== '_' &&
-    ticTacToe[1][1] !== '_' &&
-    ticTacToe[2][0] !== '_'
-  ) {
-    if (
-      ticTacToe[0][2] === ticTacToe[1][1] &&
-      ticTacToe[1][1] === ticTacToe[2][0]
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function validatePlayerMove(playerValue) {
@@ -236,11 +169,12 @@ function playGame(num) {
   }
 
   countMovesPlayed();
-  const playerWon = checkPlayerWon();
+  const playerWon = checkPlayerWon(index1, index2, currentPlayer);
 
   if (playerWon) {
     console.clear();
     console.log(`Congrats ${currentPlayer}. You won the game!!!`);
+    movesPlayed = 0;
     resetTicTacToe();
     currentPlayer = players.player1;
     displayInitialGameRules();
@@ -253,6 +187,7 @@ function playGame(num) {
   if (isGameDraw) {
     console.clear();
     console.log(`The game is draw.\nRestarting the Game...`);
+    movesPlayed = 0;
     resetTicTacToe();
     currentPlayer = players.player1;
     displayInitialGameRules();
@@ -266,7 +201,7 @@ function playGame(num) {
   displayTicTacToe(ticTacToe);
 }
 
-process.stdin.on("data", (data) => {
+process.stdin.on('data', (data) => {
   const parsedData = data.toString();
   const isValidNum = !Number.isNaN(Number(data.toString()));
   const validNum = Number(data.toString());

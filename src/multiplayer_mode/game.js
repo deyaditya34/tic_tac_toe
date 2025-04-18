@@ -1,13 +1,11 @@
 function create_new() {
   return {
-    status: 'PLAYING',
+    status: 'INITIALISED',
     current_player_turn: 0,
+    player_won: null,
     moves_played: 0,
     status_message: null,
-    players: {
-      0: 'X',
-      1: 'O',
-    },
+    players: {},
     board: [
       ['_', '_', '_'],
       ['_', '_', '_'],
@@ -16,14 +14,12 @@ function create_new() {
 
     process_input(game_input) {
       const current_player_validated = this.validate_current_player_turn(
-        game_input.player_id,
-        this.players[this.current_player_turn]
+        game_input.player_name,
+        this.current_player_turn
       );
 
       if (!current_player_validated) {
-        let error_message = `Current player is - '${
-          this.players[this.current_player_turn]
-        }'. Please wait for your turn.`;
+        let error_message = `Current player is - '${this.current_player_turn}'. Please wait for your turn.`;
 
         return [false, error_message];
       }
@@ -37,9 +33,7 @@ function create_new() {
       );
 
       if (!update_board_successful) {
-        let error_message = `Current move is invalid as it is not empty. Current player is - '${
-          this.players[this.current_player_turn]
-        }'.`;
+        let error_message = `Current move is invalid as it is not empty. Current player is - '${this.current_player_turn}'.`;
 
         return [false, error_message];
       }
@@ -53,9 +47,8 @@ function create_new() {
       );
 
       if (current_player_won) {
-        let success_message = `Congrats '${
-          this.players[this.current_player_turn]
-        }' won the game.`;
+        this.player_won = this.current_player_turn;
+        let success_message = `Congrats '${this.current_player_turn}' won the game.`;
 
         this.status = 'GAME_OVER';
         return [false, success_message];
@@ -70,11 +63,13 @@ function create_new() {
         return [false, success_message];
       }
 
-      let success_message = `Player - '${
-        this.players[this.current_player_turn]
-      }' move completed.`;
+      let success_message = `Player - '${this.current_player_turn}' move completed.`;
 
-      this.current_player_turn = (this.current_player_turn + 1) % 2;
+      const change_player = this.change_current_player_turn(
+        this.players,
+        this.current_player_turn
+      );
+      this.current_player_turn = change_player;
 
       return [true, success_message];
     },
@@ -83,8 +78,22 @@ function create_new() {
       return JSON.parse(JSON.stringify(this));
     },
 
-    validate_current_player_turn(current_player_input, current_player_game) {
-      if (current_player_input === current_player_game) {
+    
+
+    change_current_player_turn(players, current_player_turn) {
+      const players_list = Object.keys(players);
+
+      if (current_player_turn === players_list[0]) {
+        current_player_turn = players_list[1];
+      } else {
+        current_player_turn = players_list[0];
+      }
+
+      return current_player_turn;
+    },
+
+    validate_current_player_turn(player_input_name, current_player_turn) {
+      if (player_input_name === current_player_turn) {
         return true;
       }
 

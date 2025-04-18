@@ -1,16 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { createClient } = require('redis');
 const config = require('../config');
-
-const active_games = {};
-
-async function initialize_redis() {
-  const client = await createClient()
-    .on('error', (err) => console.log('Redis Client Error', err))
-    .connect();
-
-  return client;
-}
 
 function validate_active_game_id(game_id) {
   if (!active_games[game_id]) {
@@ -83,13 +72,12 @@ function decrypt_token(token) {
 }
 
 module.exports = {
-  active_games,
   validate_active_game_id,
   retrieve_indexes_by_player_move,
   decrypt_token,
-  initialize_redis,
 };
 
 // demo - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW8iLCJpYXQiOjE3NDQ5NTU5NzJ9.wx4LFVAbQDP1ig_FEf0wm4hKm0dnp1TsP8Y8fZVOxkE
 // demo1 - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW8xIiwiaWF0IjoxNzQ0OTU4MDU5fQ.fgfSHSRLtHCtyTosehMx_aOMgbm55zS3iU-EvuQQLxY
 // demo2 - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW8yIiwiaWF0IjoxNzQ0OTU4MTA5fQ.gdr-9VjXRpZZHy126oww2Ws0HeNTPJIlJMAxQJL8-DI
+// https://0x0.st/8OMl.js

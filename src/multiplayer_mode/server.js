@@ -1,57 +1,50 @@
 const express = require('express');
+const { createClient } = require('redis');
 const config = require('../config');
-const { create_new } = require('./game');
+const { create_game } = require('./game');
 const gameplay = require('./gameplay');
 
 async function start() {
   const server = express();
   console.log('connecting to database..');
-  const client = await gameplay.initialize_redis();
+  const client = await createClient()
+    .on('error', (err) => console.log('Redis Client Error', err))
+    .connect();
   console.log('connected to database.\nStarting server..');
   server.use(express.json());
 
   let game_id = 0;
 
   server.post('/game_init', async (req, res) => {
-    const new_game = create_new();
+    const new_game = create_game();
     game_id++;
 
     await client.set(game_id.toString(), JSON.stringify(new_game));
-    // gameplay.active_games[game_id] = new_game;
-    console.log('game initialised -', await client.get(game_id.toString()));
+
     return res.json({ game_id });
   });
 
   server.get('/get_game_state/:game_id', async (req, res) => {
     const game_id = req.params.game_id;
 
-    // const game_id_exist = gameplay.validate_active_game_id(game_id);
-    const game = await client.get(game_id);
+    const game_data = await client.get(game_id);
 
-    if (!game) {
+    if (!game_data) {
       return res.json({
         success: false,
         error: 'game_id doesnot exist',
       });
     }
-    const parse_game = JSON.parse(game);
-    // const parse_game = gameplay.active_games[game_id];
+    const game = create_game(JSON.parse(game_data));
 
-    const game_board = parse_game.board;
-    const game_status = parse_game.status;
-    const player_won = parse_game.player_won;
-    const current_player = parse_game.players[parse_game.current_player_turn];
-    const players_list = Object.keys(parse_game.players);
-    const players = [
-      {
-        player_1: players_list[0],
-        player_move: parse_game.players[players_list[0]],
-      },
-      {
-        player_2: players_list[1],
-        player_move: parse_game.players[players_list[1]],
-      },
-    ];
+    const game_board = game.board;
+    const game_status = game.status;
+    const player_won = game.player_won;
+    const current_player = game.get_current_player(
+      game.players,
+      game.current_player_turn
+    );
+    const players = game.players;
     return res.json({
       success: true,
       message: 'game status shown below',
@@ -83,33 +76,35 @@ async function start() {
       });
     }
 
-    const game = await client.get(game_id);
-    // const game_id_exist = gameplay.validate_active_game_id(game_id);
+    const game_data = await client.get(game_id);
+    const parsed_game_data = JSON.parse(game_data);
 
-    if (!game) {
+    if (!game_data) {
       return res.json({
         success: false,
         error: 'game id doesnot exist',
       });
     }
 
-    // const parse_game = gameplay.active_games[game_id];
-    const parse_game = JSON.parse(game);
+    const game = create_game(JSON.parse(game_data));
 
-    if (parse_game.status !== 'INITIALISED') {
+    if (game.status !== 'WAITING_FOR_PLAYERS') {
       return res.json({
         success: false,
         message: 'players joining completed in this game.',
       });
     }
 
-    const players_list_in_game = Object.keys(parse_game.players);
+    const players_list_in_game = game.players;
 
     if (!players_list_in_game.length) {
-      parse_game.players[player] = 'X';
-      parse_game.current_player_turn = player;
+      const player_details = {};
+      player_details.player_name = player;
+      player_details.character = 'X';
 
-      await client.set(game_id.toString(), JSON.stringify(parse_game));
+      parsed_game_data.players.push(player_details);
+
+      await client.set(game_id.toString(), JSON.stringify(parsed_game_data));
 
       return res.json({
         success: true,
@@ -125,10 +120,14 @@ async function start() {
         });
       }
 
-      parse_game.players[player] = 'O';
-      parse_game.status = 'IN_PLAY_MODE';
+      const player_details = {};
+      player_details.player_name = player;
+      player_details.character = 'O';
 
-      await client.set(game_id.toString(), JSON.stringify(parse_game));
+      parsed_game_data.players.push(player_details);
+      parsed_game_data.status = 'IN_PLAY_MODE';
+
+      await client.set(game_id.toString(), JSON.stringify(parsed_game_data));
 
       return res.json({
         success: true,
@@ -158,34 +157,34 @@ async function start() {
       });
     }
 
-    // const game_id_exist = gameplay.validate_active_game_id(game_id);
-    const game = await client.get(game_id);
+    const game_data = await client.get(game_id);
 
-    if (!game) {
+    if (!game_data) {
       return res.json({
         success: false,
         error: 'game id doesnot exist',
       });
     }
-    console.log('game -', game);
-    // const parse_game = gameplay.active_games[game_id];
-    const parse_game = JSON.parse(game);
 
-    if (parse_game.status === 'GAME_OVER') {
-      const game_board = parse_game.board;
-      const current_player = parse_game.current_player_turn;
+    const game = create_game(JSON.parse(game_data));
+
+    if (game.status === 'GAME_OVER') {
+      const game_board = game.board;
+      const current_player = game.get_current_player(
+        game.players,
+        game.current_player_turn
+      );
 
       return res.json({
         success: false,
         message: `'${current_player}' - won the game.`,
         game_board,
-        current_player,
       });
     }
 
-    if (parse_game.status === 'INITIALISED') {
-      const game_board = parse_game.board;
-      const players = parse_game.players;
+    if (game.status === 'WAITING_FOR_PLAYERS') {
+      const game_board = game.board;
+      const players = game.players;
 
       return res.json({
         success: false,
@@ -195,10 +194,13 @@ async function start() {
       });
     }
 
-    if (parse_game.status === 'IN_PLAY_MODE') {
+    if (game.status === 'IN_PLAY_MODE') {
       if (!Number.isNaN(move) && Number(move) < 1 && Number(move) > 9) {
-        const game_board = parse_game.board;
-        const current_player = parse_game.current_player_turn;
+        const game_board = game.board;
+        const current_player = game.get_current_player(
+          game.players,
+          game.current_player_turn
+        );
 
         return res.json({
           success: false,
@@ -212,14 +214,14 @@ async function start() {
         Number(move)
       );
 
-      let [ok, message] = parse_game.process_input({
+      let [ok, message] = game.process_input({
         player_name: player,
         index1,
         index2,
       });
 
-      const game_board = parse_game.board;
-      if (parse_game.status === 'GAME_OVER') {
+      const game_board = game.board;
+      if (game.status === 'GAME_OVER') {
         return res.json({
           success: ok,
           error: message,
@@ -231,13 +233,16 @@ async function start() {
         success: ok,
         message,
         game_board,
-        current_player: parse_game.current_player_turn,
+        current_player: game.get_current_player(
+          game.players,
+          game.current_player_turn
+        ),
       });
     }
   });
 
   server.listen(8090, () => {
-    console.log('server is running at 8090');
+    console.log(`server is running at 8090`);
   });
 }
 

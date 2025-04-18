@@ -30,17 +30,6 @@ async function make_move() {
   }
 }
 
-async function select_player() {
-  while (true) {
-    const result = await ask_question("Choose your player - 'X' or 'O'\n");
-    const parsed_result = result.toString();
-
-    if (parsed_result === 'X' || parsed_result === 'O') {
-      return parsed_result;
-    }
-  }
-}
-
 async function restart_game() {
   while (true) {
     const result = await ask_question(
@@ -107,22 +96,14 @@ function retrieve_indexes_by_player_move(number) {
 }
 
 async function get_relevant_input(game_state) {
-  switch (game_state.required_input) {
-    case 'MAKE_MOVE':
-      const selected_player = await select_player();
-      const player_move = await make_move();
-      const { index1, index2 } = retrieve_indexes_by_player_move(player_move);
+  const player_move = await make_move();
+  const { index1, index2 } = retrieve_indexes_by_player_move(player_move);
 
-      return { selected_player, index1, index2 };
-
-    case 'GAME_OVER':
-      const game_restart = await restart_game();
-
-      return { game_restart };
-  }
+  return { index1, index2 };
 }
 
 module.exports = {
   get_relevant_input,
   close_readline,
+  ask_question,
 };

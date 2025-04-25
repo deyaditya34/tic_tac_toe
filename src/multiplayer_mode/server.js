@@ -1,5 +1,7 @@
 const express = require('express');
 const { createClient } = require('redis');
+const crypto = require('crypto');
+const morgan = require('morgan');
 const config = require('../config');
 const { create_game } = require('./game');
 const gameplay = require('./gameplay');
@@ -11,21 +13,168 @@ async function start() {
     .on('error', (err) => console.log('Redis Client Error', err))
     .connect();
   console.log('connected to database.\nStarting server..');
-  server.use(express.json());
+  await client.flushAll();
 
-  let game_id = 0;
+  // server.use(
+  //   morgan(':method :url :status :res[content-length] - :response-time ms')
+  // );
 
-  server.post('/game_init', async (req, res) => {
-    const new_game = create_game();
-    game_id++;
+  server.post('/api/game', async (req, res) => {
+    const player_token = req.headers?.token;
+    const new_game = new create_game();
 
-    await client.set(game_id.toString(), JSON.stringify(new_game));
+    if (!player_token) {
+      return res.json({
+        success: false,
+        message: 'player token is missing',
+      });
+    }
 
-    return res.json({ game_id });
+    const player = gameplay.decrypt_token(player_token);
+
+    if (!player) {
+      return res.json({
+        success: false,
+        message: 'invalid player',
+      });
+    }
+
+    const active_players_list = await client.get(config.ACTIVE_PLAYERS_ID_LIST);
+    const active_players_list_parsed = JSON.parse(active_players_list);
+
+    if (active_players_list) {
+      const player_already_in_game = active_players_list_parsed.find(
+        (active_player) => active_player === player
+      );
+
+      if (player_already_in_game) {
+        return res.json({
+          success: false,
+          message: 'player is already enrolled in another game.',
+        });
+      }
+    }
+
+    let game_id;
+
+    while (true) {
+      game_id = crypto.randomUUID();
+
+      const existing_game_id = await client.get(game_id);
+
+      if (!existing_game_id) {
+        break;
+      }
+    }
+
+    await client.set(game_id, JSON.stringify(new_game));
+
+    const game_data = await client.get(game_id);
+    const game = new create_game(JSON.parse(game_data));
+
+    const [add_player, message] = game.add_player(player);
+
+    if (!add_player) {
+      await client.del(game_id);
+
+      return res.json({
+        success: add_player,
+        message,
+        game_id,
+      });
+    }
+
+    await client.set(game_id, JSON.stringify(game));
+
+    const active_games_list = await client.get(config.ACTIVE_GAMES_ID_LIST);
+
+    if (!active_games_list) {
+      await client.set(config.ACTIVE_GAMES_ID_LIST, JSON.stringify([game_id]));
+    } else {
+      const active_games_list_parsed = JSON.parse(active_games_list);
+      active_games_list_parsed.push(game_id);
+
+      await client.set(
+        config.ACTIVE_GAMES_ID_LIST,
+        JSON.stringify(active_games_list_parsed)
+      );
+    }
+
+    if (!active_players_list) {
+      await client.set(config.ACTIVE_PLAYERS_ID_LIST, JSON.stringify([player]));
+    } else {
+      active_players_list_parsed.push(player);
+
+      await client.set(
+        config.ACTIVE_PLAYERS_ID_LIST,
+        JSON.stringify(active_players_list_parsed)
+      );
+    }
+
+    return res.json({
+      success: add_player,
+      message,
+      game_id,
+    });
   });
 
-  server.get('/get_game_state/:game_id', async (req, res) => {
+  server.get('/api/game/players/active', async (req, res) => {
+    const active_players_list = await client.get(config.ACTIVE_PLAYERS_ID_LIST);
+    console.log('active players list', active_players_list);
+    if (!active_players_list) {
+      return res.json({
+        success: false,
+        message: 'No players active at this moment.',
+      });
+    }
+
+    const active_players_list_parsed = JSON.parse(active_players_list);
+
+    return res.json({
+      success: true,
+      message: 'active players list shown',
+      active_players_list_parsed,
+    });
+  });
+
+  server.get('/api/game/games/active', async (req, res) => {
+    const active_games_list = await client.get(config.ACTIVE_GAMES_ID_LIST);
+
+    if (!active_games_list) {
+      return res.json({
+        success: false,
+        message: 'No games to join at this moment.',
+      });
+    }
+
+    const active_games_list_parsed = JSON.parse(active_games_list);
+
+    return res.json({
+      success: true,
+      message: 'active games list shown',
+      active_games_list_parsed,
+    });
+  });
+
+  server.get('/api/game/:game_id', async (req, res) => {
     const game_id = req.params.game_id;
+    const player_token = req.headers?.token;
+
+    if (!player_token) {
+      return res.json({
+        success: false,
+        message: 'player token is missing',
+      });
+    }
+
+    const player = gameplay.decrypt_token(player_token);
+
+    if (!player) {
+      return res.json({
+        success: false,
+        message: 'invalid player',
+      });
+    }
 
     const game_data = await client.get(game_id);
 
@@ -35,7 +184,8 @@ async function start() {
         error: 'game_id doesnot exist',
       });
     }
-    const game = create_game(JSON.parse(game_data));
+
+    const game = new create_game(JSON.parse(game_data));
 
     const game_board = game.board;
     const game_status = game.status;
@@ -56,9 +206,9 @@ async function start() {
     });
   });
 
-  server.post('/join_game/:game_id', async (req, res) => {
+  server.post('/api/game/:game_id/join', async (req, res) => {
     const game_id = req.params.game_id;
-    const player_token = req.body?.token;
+    const player_token = req.headers?.token;
 
     if (!player_token) {
       return res.json({
@@ -77,7 +227,6 @@ async function start() {
     }
 
     const game_data = await client.get(game_id);
-    const parsed_game_data = JSON.parse(game_data);
 
     if (!game_data) {
       return res.json({
@@ -86,7 +235,7 @@ async function start() {
       });
     }
 
-    const game = create_game(JSON.parse(game_data));
+    const game = new create_game(JSON.parse(game_data));
 
     if (game.status !== 'WAITING_FOR_PLAYERS') {
       return res.json({
@@ -95,56 +244,77 @@ async function start() {
       });
     }
 
-    const players_list_in_game = game.players;
+    const active_players_list = await client.get(config.ACTIVE_PLAYERS_ID_LIST);
+    const active_players_list_parsed = JSON.parse(active_players_list);
 
-    if (!players_list_in_game.length) {
-      const player_details = {};
-      player_details.player_name = player;
-      player_details.character = 'X';
+    const player_already_in_game = active_players_list_parsed.find(
+      (active_player) => active_player === player
+    );
 
-      parsed_game_data.players.push(player_details);
-
-      await client.set(game_id.toString(), JSON.stringify(parsed_game_data));
-
+    if (player_already_in_game) {
       return res.json({
-        success: true,
-        message: `'${player}' joined in game -'${game_id}' with move assigned - 'X'.`,
+        success: false,
+        message: 'player is already enrolled in another game.',
       });
     }
 
-    if (players_list_in_game.length === 1) {
-      if (player === players_list_in_game[0]) {
-        return res.json({
-          success: false,
-          message: 'player already joined the game.',
-        });
-      }
+    const [add_player, message] = game.add_player(player);
 
-      const player_details = {};
-      player_details.player_name = player;
-      player_details.character = 'O';
-
-      parsed_game_data.players.push(player_details);
-      parsed_game_data.status = 'IN_PLAY_MODE';
-
-      await client.set(game_id.toString(), JSON.stringify(parsed_game_data));
-
+    if (!add_player) {
       return res.json({
-        success: true,
-        message: `'${player}' joined in game - '${game_id}' with move assigned - 'O'.`,
+        success: add_player,
+        message,
+        game_id,
       });
     }
+
+    await client.set(game_id, JSON.stringify(game));
+
+    const active_games_list = await client.get(config.ACTIVE_GAMES_ID_LIST);
+    const active_games_list_parsed = JSON.parse(active_games_list);
+    const update_active_games_list = active_games_list_parsed.find(
+      (active_game_id) => active_game_id !== game_id
+    );
+
+    if (!update_active_games_list) {
+      await client.set(config.ACTIVE_GAMES_ID_LIST, JSON.stringify([]));
+    } else {
+      await client.set(
+        config.ACTIVE_GAMES_ID_LIST,
+        JSON.stringify(update_active_games_list)
+      );
+    }
+
+    active_players_list_parsed.push(player);
+
+    await client.set(
+      config.ACTIVE_PLAYERS_ID_LIST,
+      JSON.stringify(active_players_list_parsed)
+    );
+
+    return res.json({
+      success: add_player,
+      message,
+      game_id,
+    });
   });
 
-  server.post('/make_move/:game_id/:move', async (req, res) => {
+  server.post('/api/game/:game_id/play', async (req, res) => {
     const game_id = req.params.game_id;
-    const move = req.params.move;
-    const player_token = req.body?.token;
+    const move = req.query.move;
+    const player_token = req.headers?.token;
 
     if (!player_token) {
       return res.json({
         success: false,
         message: 'player token is missing',
+      });
+    }
+
+    if (!move) {
+      return res.json({
+        success: false,
+        message: 'player move is required',
       });
     }
 
@@ -166,7 +336,7 @@ async function start() {
       });
     }
 
-    const game = create_game(JSON.parse(game_data));
+    const game = new create_game(JSON.parse(game_data));
 
     if (game.status === 'GAME_OVER') {
       const game_board = game.board;
@@ -209,30 +379,43 @@ async function start() {
           current_player,
         });
       }
-
+      console.log('move -', move, 'typeof move -', typeof move);
       const { index1, index2 } = gameplay.retrieve_indexes_by_player_move(
         Number(move)
       );
-
+      console.log('index 1', 'index 2', index1, index2);
       let [ok, message] = game.process_input({
         player_name: player,
         index1,
         index2,
       });
 
-      const game_board = game.board;
+      await client.set(game_id, JSON.stringify(game));
+
+      if (!ok) {
+        return res.json({
+          success: ok,
+          error: message,
+          game_board: game.board,
+          current_player: game.get_current_player(
+            game.players,
+            game.current_player_turn
+          ),
+        });
+      }
+
       if (game.status === 'GAME_OVER') {
         return res.json({
           success: ok,
           error: message,
-          game_board,
+          game_board: game.board,
         });
       }
 
       return res.json({
         success: ok,
         message,
-        game_board,
+        game_board: game.board,
         current_player: game.get_current_player(
           game.players,
           game.current_player_turn
@@ -241,8 +424,8 @@ async function start() {
     }
   });
 
-  server.listen(8090, () => {
-    console.log(`server is running at 8090`);
+  server.listen(config.SERVER_PORT, () => {
+    console.log(`server is running at ${config.SERVER_PORT}`);
   });
 }
 

@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const config = require('../config');
+const redis_database = require('../database/redis_database.service');
 
 function validate_active_game_id(game_id) {
   if (!active_games[game_id]) {
@@ -7,6 +9,22 @@ function validate_active_game_id(game_id) {
   }
 
   return true;
+}
+
+async function generate_game_id() {
+  let result;
+
+  while (true) {
+    result = crypto.randomUUID();
+
+    const existing_game_id = await redis_database.client.get(result);
+
+    if (!existing_game_id) {
+      break;
+    }
+  }
+
+  return result;
 }
 
 function retrieve_indexes_by_player_move(number) {
@@ -75,9 +93,5 @@ module.exports = {
   validate_active_game_id,
   retrieve_indexes_by_player_move,
   decrypt_token,
+  generate_game_id
 };
-
-// demo - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW8iLCJpYXQiOjE3NDQ5NTU5NzJ9.wx4LFVAbQDP1ig_FEf0wm4hKm0dnp1TsP8Y8fZVOxkE
-// demo1 - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW8xIiwiaWF0IjoxNzQ0OTU4MDU5fQ.fgfSHSRLtHCtyTosehMx_aOMgbm55zS3iU-EvuQQLxY
-// demo2 - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW8yIiwiaWF0IjoxNzQ0OTU4MTA5fQ.gdr-9VjXRpZZHy126oww2Ws0HeNTPJIlJMAxQJL8-DI
-// https://0x0.st/8OMl.js

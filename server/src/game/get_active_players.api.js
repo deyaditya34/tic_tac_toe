@@ -1,8 +1,8 @@
-const redis_database = require('../database/redis_database.service');
-const config = require("../config");
+const config = require('../config');
+const game_service_in_memory = require('./redis_database.game.service');
 
 async function get_active_players(req, res) {
-  const active_players_list = await redis_database.client.get(
+  const active_players_list = await game_service_in_memory.get_active_players(
     config.ACTIVE_PLAYERS_ID_LIST
   );
 
@@ -13,12 +13,10 @@ async function get_active_players(req, res) {
     });
   }
 
-  const active_players_list_parsed = JSON.parse(active_players_list);
-
   return res.json({
     success: true,
     message: 'active players list shown',
-    active_players_list_parsed,
+    active_players: active_players_list,
   });
 }
 

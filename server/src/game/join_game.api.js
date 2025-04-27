@@ -1,7 +1,7 @@
-const redis_database = require("../database/redis_database.service");
-const game_utils = require("./game_utils");
-const {create_game} = require("./game");
-const config = require("../config");
+const game_utils = require('./game_utils');
+const { create_game } = require('./game');
+const config = require('../config');
+const game_service_in_memory = require('./redis_database.game.service');
 
 async function join_game(req, res) {
   const game_id = req.params.game_id;
@@ -23,16 +23,16 @@ async function join_game(req, res) {
     });
   }
 
-  const game_data = await redis_database.client.get(game_id);
+  const game_data = await game_service_in_memory.get_game(game_id);
 
   if (!game_data) {
     return res.json({
       success: false,
-      error: 'game id doesnot exist',
+      message: 'game id doesnot exist',
     });
   }
 
-  const game = new create_game(JSON.parse(game_data));
+  const game = new create_game(game_data);
 
   if (game.status !== 'WAITING_FOR_PLAYERS') {
     return res.json({
@@ -41,12 +41,11 @@ async function join_game(req, res) {
     });
   }
 
-  const active_players_list = await redis_database.client.get(
+  const active_players_list = await game_service_in_memory.get_active_players(
     config.ACTIVE_PLAYERS_ID_LIST
   );
-  const active_players_list_parsed = JSON.parse(active_players_list);
 
-  const player_already_in_game = active_players_list_parsed.find(
+  const player_already_in_game = active_players_list.find(
     (active_player) => active_player === player
   );
 
@@ -67,33 +66,26 @@ async function join_game(req, res) {
     });
   }
 
-  await redis_database.client.set(game_id, JSON.stringify(game));
+  await game_service_in_memory.store_game(game_id, game);
 
-  const active_games_list = await redis_database.client.get(
+  const active_games_list = await game_service_in_memory.get_active_games(
     config.ACTIVE_GAMES_ID_LIST
   );
-  const active_games_list_parsed = JSON.parse(active_games_list);
-  const update_active_games_list = active_games_list_parsed.find(
+
+  const update_active_games_list = active_games_list.filter(
     (active_game_id) => active_game_id !== game_id
   );
 
-  if (!update_active_games_list) {
-    await redis_database.client.set(
-      config.ACTIVE_GAMES_ID_LIST,
-      JSON.stringify([])
-    );
-  } else {
-    await redis_database.client.set(
-      config.ACTIVE_GAMES_ID_LIST,
-      JSON.stringify(update_active_games_list)
-    );
-  }
+  await game_service_in_memory.store_active_games(
+    config.ACTIVE_GAMES_ID_LIST,
+    update_active_games_list
+  );
 
-  active_players_list_parsed.push(player);
+  active_players_list.push(player);
 
-  await redis_database.client.set(
+  await game_service_in_memory.store_active_players(
     config.ACTIVE_PLAYERS_ID_LIST,
-    JSON.stringify(active_players_list_parsed)
+    active_players_list
   );
 
   return res.json({
@@ -103,4 +95,4 @@ async function join_game(req, res) {
   });
 }
 
-module.exports = {join_game}
+module.exports = { join_game };

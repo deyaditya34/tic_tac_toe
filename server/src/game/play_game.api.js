@@ -1,6 +1,7 @@
-const redis_database = require('../database/redis_database.service');
 const { create_game } = require('./game');
 const game_utils = require('./game_utils');
+const game_service_in_memory = require('./redis_database.game.service');
+const config = require('../config');
 
 async function play_game(req, res) {
   const game_id = req.params.game_id;
@@ -30,7 +31,7 @@ async function play_game(req, res) {
     });
   }
 
-  const game_data = await redis_database.client.get(game_id);
+  const game_data = await game_service_in_memory.get_game(game_id);
 
   if (!game_data) {
     return res.json({
@@ -39,10 +40,9 @@ async function play_game(req, res) {
     });
   }
 
-  const game = new create_game(JSON.parse(game_data));
+  const game = new create_game(game_data);
 
   if (game.status === 'GAME_OVER') {
-    const game_board = game.board;
     const current_player = game.get_current_player(
       game.players,
       game.current_player_turn
@@ -51,35 +51,29 @@ async function play_game(req, res) {
     return res.json({
       success: false,
       message: `'${current_player}' - won the game.`,
-      game_board,
+      game_board: game.board,
     });
   }
 
   if (game.status === 'WAITING_FOR_PLAYERS') {
-    const game_board = game.board;
-    const players = game.players;
-
     return res.json({
       success: false,
       message: 'waiting for players to join in this game.',
-      game_board,
-      players,
+      game_board: game.board,
+      players: game.players,
     });
   }
 
   if (game.status === 'IN_PLAY_MODE') {
     if (!Number.isNaN(move) && Number(move) < 1 && Number(move) > 9) {
-      const game_board = game.board;
-      const current_player = game.get_current_player(
-        game.players,
-        game.current_player_turn
-      );
-
       return res.json({
         success: false,
         error: 'move is invalid. The move should be from 1 - 9',
-        game_board,
-        current_player,
+        game_board: game.board,
+        current_player: game.get_current_player(
+          game.players,
+          game.current_player_turn
+        ),
       });
     }
 
@@ -93,7 +87,7 @@ async function play_game(req, res) {
       index2,
     });
 
-    await redis_database.client.set(game_id, JSON.stringify(game));
+    await game_service_in_memory.store_game(game_id, game);
 
     if (!ok) {
       return res.json({
@@ -108,6 +102,24 @@ async function play_game(req, res) {
     }
 
     if (game.status === 'GAME_OVER') {
+      const game_players = game.players;
+
+      const active_players_list =
+        await game_service_in_memory.get_active_players(
+          config.ACTIVE_PLAYERS_ID_LIST
+        );
+
+      const update_active_players_list = active_players_list.filter(
+        (player_name) =>
+          player_name !== game_players[0].player_name ||
+          player_name !== game_players[1].player_name
+      );
+
+      await game_service_in_memory.store_active_players(
+        config.ACTIVE_PLAYERS_ID_LIST,
+        update_active_players_list
+      );
+
       return res.json({
         success: ok,
         error: message,

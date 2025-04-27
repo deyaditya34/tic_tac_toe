@@ -1,8 +1,7 @@
-const crypto = require('crypto');
-const redis_database = require("../database/redis_database.service");
-const {create_game} = require("./game");
-const game_utils = require("./game_utils");
-const config = require("../config");
+const game_service_in_memory = require('./redis_database.game.service');
+const game_utils = require('./game_utils');
+const { create_game } = require('./game');
+const config = require('../config');
 
 async function create_new_game(req, res) {
   const player_token = req.headers?.token;
@@ -24,13 +23,12 @@ async function create_new_game(req, res) {
     });
   }
 
-  const active_players_list = await redis_database.client.get(
+  const active_players_list = await game_service_in_memory.get_active_players(
     config.ACTIVE_PLAYERS_ID_LIST
   );
-  const active_players_list_parsed = JSON.parse(active_players_list);
 
   if (active_players_list) {
-    const player_already_in_game = active_players_list_parsed.find(
+    const player_already_in_game = active_players_list.find(
       (active_player) => active_player === player
     );
 
@@ -42,27 +40,17 @@ async function create_new_game(req, res) {
     }
   }
 
-  let game_id;
+  let game_id = await game_utils.generate_game_id();
 
-  while (true) {
-    game_id = crypto.randomUUID();
+  await game_service_in_memory.store_game(game_id, new_game);
 
-    const existing_game_id = await redis_database.client.get(game_id);
-
-    if (!existing_game_id) {
-      break;
-    }
-  }
-
-  await redis_database.client.set(game_id, JSON.stringify(new_game));
-
-  const game_data = await redis_database.client.get(game_id);
-  const game = new create_game(JSON.parse(game_data));
+  const game_data = await game_service_in_memory.get_game(game_id);
+  const game = new create_game(game_data);
 
   const [add_player, message] = game.add_player(player);
 
   if (!add_player) {
-    await redis_database.client.del(game_id);
+    await game_service_in_memory.delete_game(game_id);
 
     return res.json({
       success: add_player,
@@ -70,40 +58,33 @@ async function create_new_game(req, res) {
     });
   }
 
-  await redis_database.client.set(game_id, JSON.stringify(game));
+  await game_service_in_memory.store_game(game_id, game);
 
-  const active_games_list = await redis_database.client.get(
+  const active_games_list = await game_service_in_memory.get_active_games(
     config.ACTIVE_GAMES_ID_LIST
   );
 
-  if (!active_games_list) {
-    await redis_database.client.set(
-      config.ACTIVE_GAMES_ID_LIST,
-      JSON.stringify([game_id])
-    );
+  if (active_games_list) {
+    active_games_list.push(game_id);
   } else {
-    const active_games_list_parsed = JSON.parse(active_games_list);
-    active_games_list_parsed.push(game_id);
-
-    await redis_database.client.set(
-      config.ACTIVE_GAMES_ID_LIST,
-      JSON.stringify(active_games_list_parsed)
-    );
+    active_games_list = [game_id];
   }
 
-  if (!active_players_list) {
-    await redis_database.client.set(
-      config.ACTIVE_PLAYERS_ID_LIST,
-      JSON.stringify([player])
-    );
-  } else {
-    active_players_list_parsed.push(player);
+  await game_service_in_memory.store_active_games(
+    config.ACTIVE_GAMES_ID_LIST,
+    active_games_list
+  );
 
-    await redis_database.client.set(
-      config.ACTIVE_PLAYERS_ID_LIST,
-      JSON.stringify(active_players_list_parsed)
-    );
+  if (active_players_list) {
+    active_players_list.push(player);
+  } else {
+    active_players_list = [player];
   }
+
+  await game_service_in_memory.store_active_players(
+    config.ACTIVE_PLAYERS_ID_LIST,
+    active_players_list
+  );
 
   return res.json({
     success: add_player,
@@ -112,5 +93,4 @@ async function create_new_game(req, res) {
   });
 }
 
-
-module.exports = {create_new_game}
+module.exports = { create_new_game };

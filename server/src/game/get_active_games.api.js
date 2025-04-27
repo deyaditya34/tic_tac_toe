@@ -1,8 +1,8 @@
-const redis_database = require('../database/redis_database.service');
-const config = require("../config")
+const config = require('../config');
+const game_service_in_memory = require('./redis_database.game.service');
 
 async function get_active_games(req, res) {
-  const active_games_list = await redis_database.client.get(
+  const active_games_list = await game_service_in_memory.get_active_games(
     config.ACTIVE_GAMES_ID_LIST
   );
 
@@ -13,12 +13,10 @@ async function get_active_games(req, res) {
     });
   }
 
-  const active_games_list_parsed = JSON.parse(active_games_list);
-
   return res.json({
     success: true,
     message: 'active games list shown',
-    active_games_list_parsed,
+    active_games: active_games_list,
   });
 }
 

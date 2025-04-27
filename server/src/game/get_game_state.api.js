@@ -1,6 +1,6 @@
-const redis_database = require('../database/redis_database.service');
 const game_utils = require('./game_utils');
 const { create_game } = require('./game');
+const game_service_in_memory = require('./redis_database.game.service');
 
 async function get_game_state(req, res) {
   const game_id = req.params.game_id;
@@ -22,7 +22,7 @@ async function get_game_state(req, res) {
     });
   }
 
-  const game_data = await redis_database.client.get(game_id);
+  const game_data = await game_service_in_memory.get_game(game_id);
 
   if (!game_data) {
     return res.json({
@@ -31,24 +31,19 @@ async function get_game_state(req, res) {
     });
   }
 
-  const game = new create_game(JSON.parse(game_data));
+  const game = new create_game(game_data);
 
-  const game_board = game.board;
-  const game_status = game.status;
-  const player_won = game.player_won;
-  const current_player = game.get_current_player(
-    game.players,
-    game.current_player_turn
-  );
-  const players = game.players;
   return res.json({
     success: true,
     message: 'game status shown below',
-    game_board,
-    game_status,
-    player_won,
-    current_player,
-    players,
+    game_board: game.board,
+    game_status: game.status,
+    player_won: game.player_won,
+    current_player: game.get_current_player(
+      game.players,
+      game.current_player_turn
+    ),
+    players: game.players,
   });
 }
 

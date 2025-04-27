@@ -134,7 +134,7 @@ async function main() {
         const result = await existing_game_list.data;
 
         if (result.success && result.active_games_list_parsed.length) {
-          const active_games_list = result.active_games_list_parsed;
+          const active_games_list = result.active_games;
 
           const question = await ask_question(
             `Out of the active games - '${active_games_list.join(

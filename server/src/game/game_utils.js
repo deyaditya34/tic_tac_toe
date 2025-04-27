@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const config = require('./config');
+const config = require('../config');
 
 function validate_active_game_id(game_id) {
   if (!active_games[game_id]) {

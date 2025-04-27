@@ -1,5 +1,6 @@
 require('dotenv').config();
 
 module.exports = {
-  APP_PORT: process.env.APP_PORT,
+  AUTH_PORT: process.env.AUTH_PORT,
+  GAME_SERVER_PORT: process.env.GAME_SERVER_PORT
 };

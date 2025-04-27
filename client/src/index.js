@@ -37,7 +37,7 @@ async function main() {
       if (parsed_answer === 1) {
         try {
           const register_user = await axios.post(
-            `http://localhost:${config.APP_PORT}/api/auth/register`,
+            `http://localhost:${config.AUTH_PORT}/api/auth/register`,
             {
               username: username,
               password: password,
@@ -58,7 +58,7 @@ async function main() {
 
             if (parsed_answer === 1) {
               const login_user = await axios.post(
-                `http://localhost:${config.APP_PORT}/api/auth/login`,
+                `http://localhost:${config.AUTH_PORT}/api/auth/login`,
                 {
                   username: username,
                   password: password,
@@ -78,7 +78,7 @@ async function main() {
       } else {
         try {
           const login_user = await axios.post(
-            `http://localhost:${config.APP_PORT}/api/auth/login`,
+            `http://localhost:${config.AUTH_PORT}/api/auth/login`,
             {
               username: username,
               password: password,
@@ -111,7 +111,7 @@ async function main() {
       if (parsed_answer === 1) {
         try {
           const new_game = await axios.post(
-            `http://localhost:${config.APP_PORT}/api/game`,
+            `http://localhost:${config.GAME_SERVER_PORT}/api/game`,
             {},
             {
               headers: {
@@ -128,7 +128,7 @@ async function main() {
         }
       } else {
         const existing_game_list = await axios.get(
-          `http://localhost:${config.APP_PORT}/api/game/games/active`
+          `http://localhost:${config.GAME_SERVER_PORT}/api/game/games/active`
         );
 
         const result = await existing_game_list.data;
@@ -151,7 +151,7 @@ async function main() {
             parsed_answer !== 0
           ) {
             const player_join_game = await axios.post(
-              `http://localhost:${config.APP_PORT}/api/game/${
+              `http://localhost:${config.GAME_SERVER_PORT}/api/game/${
                 active_games_list[parsed_answer - 1]
               }/join`,
               {},
@@ -179,7 +179,7 @@ async function main() {
   }
 
   const game_state = await axios.get(
-    `http://localhost:${config.APP_PORT}/api/game/${game_id}`,
+    `http://localhost:${config.GAME_SERVER_PORT}/api/game/${game_id}`,
     {
       headers: {
         token: player_token,
@@ -193,7 +193,7 @@ async function main() {
   let game_status;
   while (!game_status) {
     const game_state = await axios.get(
-      `http://localhost:${config.APP_PORT}/api/game/${game_id}`,
+      `http://localhost:${config.GAME_SERVER_PORT}/api/game/${game_id}`,
       {
         headers: {
           token: player_token,
@@ -232,7 +232,7 @@ async function main() {
           (parsed_answer >= 1 || parsed_answer <= 9)
         ) {
           const player_move = await axios.post(
-            `http://localhost:${config.APP_PORT}/api/game/${game_id}/play`,
+            `http://localhost:${config.GAME_SERVER_PORT}/api/game/${game_id}/play`,
             {},
             {
               headers: {

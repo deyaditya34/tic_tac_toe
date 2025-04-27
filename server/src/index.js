@@ -379,7 +379,7 @@ async function start() {
         });
       }
 
-      const { index1, index2 } = gameplay.retrieve_indexes_by_player_move(
+      const { index1, index2 } = game_utils.retrieve_indexes_by_player_move(
         Number(move)
       );
 

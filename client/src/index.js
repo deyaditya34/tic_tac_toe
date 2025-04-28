@@ -133,7 +133,7 @@ async function main() {
 
         const result = await existing_game_list.data;
 
-        if (result.success && result.active_games_list_parsed.length) {
+        if (result.success && result.active_games.length) {
           const active_games_list = result.active_games;
 
           const question = await ask_question(

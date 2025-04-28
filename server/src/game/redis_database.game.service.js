@@ -1,7 +1,7 @@
 const redis_database = require('../database/redis_database.service');
 
 async function get_active_players(key) {
-  const result = redis_database.client.get(key);
+  const result = await redis_database.client.get(key);
 
   if (!result) {
     return;
@@ -20,7 +20,7 @@ async function store_active_players(key, value) {
 }
 
 async function get_active_games(key) {
-  const result = redis_database.client.get(key);
+  const result = await redis_database.client.get(key);
 
   if (!result) {
     return;

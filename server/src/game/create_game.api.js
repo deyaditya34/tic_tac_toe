@@ -23,7 +23,7 @@ async function create_new_game(req, res) {
     });
   }
 
-  const active_players_list = await game_service_in_memory.get_active_players(
+  let active_players_list = await game_service_in_memory.get_active_players(
     config.ACTIVE_PLAYERS_ID_LIST
   );
 
@@ -60,7 +60,7 @@ async function create_new_game(req, res) {
 
   await game_service_in_memory.store_game(game_id, game);
 
-  const active_games_list = await game_service_in_memory.get_active_games(
+  let active_games_list = await game_service_in_memory.get_active_games(
     config.ACTIVE_GAMES_ID_LIST
   );
 

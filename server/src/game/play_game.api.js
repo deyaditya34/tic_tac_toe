@@ -120,12 +120,40 @@ async function play_game(req, res) {
         update_active_players_list
       );
 
+      await game_service_in_memory.delete_game_player_turn_timeout(
+        config.CURRENT_PLAYER_TURN_LIST,
+        game_id
+      );
+
       return res.json({
         success: ok,
         error: message,
         game_board: game.board,
       });
     }
+
+    const current_player_turn = game.current_player_turn;
+    const current_player_deactivated_time = new Date(
+      Date.now() + config.PLAYER_TURN_TIMEOUT * 1000 * 60
+    );
+    const is_deactivated = false;
+
+    const game_player_turn_timeout_index =
+      await game_service_in_memory.get_game_player_turn_timeout_index(
+        config.CURRENT_PLAYER_TURN_LIST,
+        game_id
+      );
+
+    await game_service_in_memory.store_game_player_turn_timeout(
+      config.CURRENT_PLAYER_TURN_LIST,
+      {
+        game_id,
+        player_turn: current_player_turn,
+        deactivated_time: current_player_deactivated_time,
+        is_deactivated,
+      },
+      game_player_turn_timeout_index
+    );
 
     return res.json({
       success: ok,

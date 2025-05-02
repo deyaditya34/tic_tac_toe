@@ -2,6 +2,7 @@ const express = require('express');
 const morgan = require('morgan');
 const config = require('./config');
 const redis_database = require('./database/redis_database.service');
+const {check_player_timeout} = require("./game/game_players_ttl_check");
 
 const { join_game } = require('./game/join_game.api');
 const { play_game } = require('./game/play_game.api');
@@ -19,9 +20,9 @@ async function start() {
   console.log('connected to database.\nStarting server..');
   await redis_database.client.flushDb();
 
-  server.use(
-    morgan(':method :url :status :res[content-length] - :response-time ms')
-  );
+  // server.use(
+  //   morgan(':method :url :status :res[content-length] - :response-time ms')
+  // );
 
   server.post('/api/game', create_new_game);
 
@@ -41,3 +42,4 @@ async function start() {
 }
 
 start();
+check_player_timeout()

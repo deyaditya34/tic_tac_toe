@@ -88,6 +88,21 @@ async function join_game(req, res) {
     active_players_list
   );
 
+  const current_player_turn = game.current_player_turn;
+  const current_player_deactivated_time =
+    new Date(Date.now() + config.PLAYER_TURN_TIMEOUT * 1000 * 60);
+  const is_deactivated = false;
+  
+  await game_service_in_memory.store_game_player_turn_timeout(
+    config.CURRENT_PLAYER_TURN_LIST,
+    {
+      game_id,
+      player_turn: current_player_turn,
+      deactivated_time: current_player_deactivated_time,
+      is_deactivated,
+    }
+  );
+
   return res.json({
     success: add_player,
     message,

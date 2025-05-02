@@ -100,6 +100,9 @@ The server exposes the following RESTful API endpoints:
   - The player is also stored in the active players list so that the player cannot join multiple games at once.
   - The game id is removed from active games list as it no longer needs to add more players.
   - The game status is changed to play mode.
+  - A timeout starts for the current player of the game.
+  - The timeout period can be modified from the env directly.
+  - If the player does not play his move within the stipulated time, the game status is changed to **game over** and the other player wins the game.
   - If in any stage, the flow breaks, the server sends the response accordingly.
 
 - **Path Parameters**:
@@ -147,6 +150,7 @@ The server exposes the following RESTful API endpoints:
   - The player move is validated whether the move is valid at that point of time.
   - The player move is inserted and the game is updated.
   - The current player is changed and the game is waiting for the next player to play the move.
+  - The timeout again restarts for the current player of the game and the same timeout rules of the game follows for the player now.
   - If the game status shows as game over, the players are removed from the active players list.
   - If in any stage, the flow breaks, the server sends the response accordingly.
 

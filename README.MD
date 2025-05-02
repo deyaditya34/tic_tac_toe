@@ -18,7 +18,7 @@ This is a implementation of the classic Tic Tac Toe game. The application allows
 ## Features
 
 - **Two-Player Mode**: Play with a friend in a local multiplayer setup.
-- **Multi-Game Mode**: Players can engage in multiple games simultaneously, managing each game's state independently. 
+- **Player Timeout Mode**: Introduces a time-bound gameplay feature where each player must make their move within a specified time limit. Failure to do so results in an automatic timeout, awarding the victory to the opposing player.
 - **Dynamic Board**: Displays the current state of the game board after every move.
 - **Win Detection**: Automatically detects when a player wins or if the game ends in a draw.
 - **Error Handling**: Prevents invalid moves such as overwriting an already occupied cell.

@@ -28,6 +28,7 @@ This is a implementation of the classic Tic Tac Toe game. The application allows
 
 ## Future Enhancements
 
+- The timekeeper should be made separate from the gamekeeper. Right now the timekeeper is also changing the game state in some cases.
 - Add a single-player mode with AI.
 - Implement a graphical user interface (GUI).
 - Allow customization of board size.
